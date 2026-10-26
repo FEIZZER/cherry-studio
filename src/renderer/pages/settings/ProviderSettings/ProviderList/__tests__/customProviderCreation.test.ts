@@ -96,6 +96,46 @@ describe('custom provider creation', () => {
     ).toBe('https://api.example.com/custom/v2/chat/completions')
   })
 
+  it('stores custom image request paths and keeps them without a Base URL', () => {
+    const payload = buildCustomProviderCreationPayload({
+      endpointUrls: {
+        [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: 'https://api.example.com',
+        [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: 'https://images.example.com'
+      },
+      endpointRequestPaths: {
+        [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: ' predict ',
+        [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: '/images/modify'
+      }
+    })
+
+    expect(payload.endpointConfigs).toEqual({
+      [ENDPOINT_TYPE.ANTHROPIC_MESSAGES]: { baseUrl: 'https://api.example.com' },
+      [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: { baseUrl: 'https://images.example.com', requestPath: 'predict' },
+      // No Base URL: the endpoint falls back to the chat endpoint host but still posts to its own path.
+      [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: { requestPath: '/images/modify' }
+    })
+  })
+
+  it('replaces the default suffix in the preview with a custom request path', () => {
+    expect(
+      buildCustomProviderEndpointPreview(
+        'https://api.example.com/v1/',
+        ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION,
+        'predict'
+      )
+    ).toBe('https://api.example.com/v1/predict')
+    expect(
+      buildCustomProviderEndpointPreview(
+        'https://api.example.com/v1/',
+        ENDPOINT_TYPE.OPENAI_IMAGE_EDIT,
+        '/images/modify'
+      )
+    ).toBe('https://api.example.com/v1/images/modify')
+    expect(
+      buildCustomProviderEndpointPreview('https://api.example.com/v1/', ENDPOINT_TYPE.OPENAI_IMAGE_EDIT, '  ')
+    ).toBe('https://api.example.com/v1/images/edits')
+  })
+
   it('requires at least one text endpoint even when an image endpoint is configured', () => {
     expect(
       findInvalidCustomProviderCreationUrl({

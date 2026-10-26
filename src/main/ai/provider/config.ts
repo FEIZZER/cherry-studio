@@ -8,7 +8,8 @@ import { isEmpty } from 'es-toolkit/compat'
 
 import { application } from '@application'
 import { formatPrivateKey, hasProviderConfig, type StringKeys } from '@cherrystudio/ai-core/provider'
-import type { CherryInProviderSettings } from '@cherrystudio/ai-sdk-provider'
+import type { CherryInProviderSettings, OpenAICompatibleImageRequestPaths } from '@cherrystudio/ai-sdk-provider'
+import { normalizeImageRequestPath } from '@cherrystudio/ai-sdk-provider'
 import { providerService, type ResolvedProviderApiKey } from '@main/data/services/ProviderService'
 import { copilotService } from '@main/services/CopilotService'
 import { mergeHeaders } from '@main/utils/http'
@@ -124,6 +125,19 @@ function formatBaseURL(baseURL: string, provider: Provider, endpointType?: Endpo
   }
 
   return formatApiHost(baseURL, appendApiVersion)
+}
+
+/**
+ * User-configured request paths replacing the OpenAI image suffixes
+ * (`/images/generations`, `/images/edits`) on this provider's image endpoints.
+ * `undefined` when neither endpoint overrides its path.
+ */
+function resolveImageRequestPaths(provider: Provider): OpenAICompatibleImageRequestPaths | undefined {
+  const generation = normalizeImageRequestPath(
+    provider.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]?.requestPath
+  )
+  const edit = normalizeImageRequestPath(provider.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]?.requestPath)
+  return generation || edit ? { generation, edit } : undefined
 }
 
 /** Presets whose IMAGE models route to the extension provider's own transport (see the builder). */
@@ -842,6 +856,7 @@ function buildAzureConfig(
 
 function buildOpenAICompatibleConfig(ctx: BuilderContext): ProviderConfig<'openai-compatible'> {
   const commonOptions = buildCommonOptions(ctx)
+  const imageRequestPaths = resolveImageRequestPaths(ctx.actualProvider)
 
   return {
     providerId: 'openai-compatible',
@@ -850,7 +865,8 @@ function buildOpenAICompatibleConfig(ctx: BuilderContext): ProviderConfig<'opena
       ...ctx.baseConfig,
       ...commonOptions,
       name: ctx.actualProvider.id,
-      includeUsage: resolveEndpointDialect(ctx.actualProvider, ctx.endpointType).streamOptions
+      includeUsage: resolveEndpointDialect(ctx.actualProvider, ctx.endpointType).streamOptions,
+      ...(imageRequestPaths && { imageRequestPaths })
     }
   }
 }
@@ -962,6 +978,7 @@ function buildNewApiConfig(ctx: BuilderContext): ProviderConfig<'newapi'> {
   const baseURL = isWithTrailingSharp(ctx.resolvedBaseUrl)
     ? ctx.baseConfig.baseURL
     : formatNewApiBaseURL(rawBaseURL, endpointType)
+  const imageRequestPaths = resolveImageRequestPaths(ctx.actualProvider)
 
   return {
     providerId: 'newapi',
@@ -970,7 +987,8 @@ function buildNewApiConfig(ctx: BuilderContext): ProviderConfig<'newapi'> {
       ...ctx.baseConfig,
       baseURL,
       endpointType: mapCherryinEndpointType(endpointType),
-      headers: { ...getProviderAppHeaders(ctx.actualProvider), ...getExtraHeaders(ctx.actualProvider) }
+      headers: { ...getProviderAppHeaders(ctx.actualProvider), ...getExtraHeaders(ctx.actualProvider) },
+      ...(imageRequestPaths && { imageRequestPaths })
     }
   }
 }

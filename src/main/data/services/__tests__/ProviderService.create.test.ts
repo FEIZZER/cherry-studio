@@ -116,4 +116,45 @@ describe('ProviderService.create — endpoint config overrides', () => {
     expect(created.endpointConfigs?.[ENDPOINT_TYPE.ANTHROPIC_MESSAGES]?.adapterFamily).toBe('anthropic')
     expect(created.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]?.adapterFamily).toBe('openai-compatible')
   })
+
+  it('persists user-owned image request paths through create, read, and update', async () => {
+    const created = providerService.create({
+      providerId: 'custom-image-relay',
+      name: 'Custom Image Relay',
+      defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
+      endpointConfigs: {
+        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://relay.example.com/v1' },
+        [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: { requestPath: '/predict' },
+        [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: { requestPath: '/images/modify' }
+      }
+    })
+
+    expect(created.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]).toEqual({
+      requestPath: '/predict',
+      adapterFamily: 'openai-compatible'
+    })
+
+    const [row] = await dbh.db
+      .select()
+      .from(userProviderTable)
+      .where(eq(userProviderTable.providerId, 'custom-image-relay'))
+    expect(row.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]).toEqual({ requestPath: '/predict' })
+    expect(row.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]).toEqual({ requestPath: '/images/modify' })
+
+    // An update that echoes no request path clears it (the row is replaced).
+    providerService.update('custom-image-relay', {
+      endpointConfigs: {
+        [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://relay.example.com/v1' },
+        [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: { baseUrl: 'https://images.example.com/v1' }
+      }
+    })
+    const [updated] = await dbh.db
+      .select()
+      .from(userProviderTable)
+      .where(eq(userProviderTable.providerId, 'custom-image-relay'))
+    expect(updated.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]).toEqual({
+      baseUrl: 'https://images.example.com/v1'
+    })
+    expect(updated.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]).toBeUndefined()
+  })
 })

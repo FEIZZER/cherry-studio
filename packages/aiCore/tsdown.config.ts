@@ -9,6 +9,7 @@ export default defineConfig({
   outDir: 'dist',
   format: ['esm', 'cjs'],
   clean: true,
-  dts: true,
+  // Declaration maps let editors jump from `dist/*.d.mts` straight to `src/*.ts`.
+  dts: { sourcemap: true },
   tsconfig: 'tsconfig.json'
 })

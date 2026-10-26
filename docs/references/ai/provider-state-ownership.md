@@ -21,8 +21,8 @@ disappeared.
 | Layer | Authoritative home | What belongs here | Test |
 |---|---|---|---|
 | Provider fact | `packages/provider-registry/src/providers/*.ts` | Facts that stay true for every user of that host: reported-cost authority, currency, native tools, Fast transport | Would changing the user or API key leave it unchanged? |
-| Endpoint fact | `endpointConfigs[endpointType]` | Protocol implementation details: base URL, adapter family, reasoning wire, request-control wire mappings, model-list URL, dialect deviations | Could two endpoints on the same provider answer differently? |
-| Connection override | `user_provider.endpoint_configs` and other provider-row connection fields | User-owned long-lived configuration: custom base URL, auth, timeout, and custom-host dialect overrides | Does the user configure it once for this connection? |
+| Endpoint fact | `endpointConfigs[endpointType]` | Protocol implementation details: base URL, request path, adapter family, reasoning wire, request-control wire mappings, model-list URL, dialect deviations | Could two endpoints on the same provider answer differently? |
+| Connection override | `user_provider.endpoint_configs` and other provider-row connection fields | User-owned long-lived configuration: custom base URL, request path, auth, timeout, and custom-host dialect overrides | Does the user configure it once for this connection? |
 | Request choice | `assistant.settings.*`, `agent.configuration.*`, or `feature.<name>.*` Preference for a surface with no assistant (translate) | Choices that can change per request: reasoning effort, summary detail, service tier, and sampling | Could the user reasonably choose another value for the next request? |
 
 Model capabilities and parameter support remain model or provider-model facts

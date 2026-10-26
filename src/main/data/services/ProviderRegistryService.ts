@@ -817,8 +817,9 @@ class ProviderRegistryService {
    * adapterFamily/modelsApiUrls) would otherwise never reach existing rows.
    *
    * Ownership per field: `adapterFamily` / `modelsApiUrls` are registry-owned
-   * (registry wins, row is a legacy fallback); `baseUrl` is user-owned (row
-   * wins); `dialect` merges key by key, the row stating only its deviations.
+   * (registry wins, row is a legacy fallback); `baseUrl` / `requestPath` are
+   * user-owned (row wins); `dialect` merges key by key, the row stating only
+   * its deviations.
    * Registry and row endpoint keys are unioned, so additions need no migration.
    *
    * Custom providers (no registry preset) keep their row configs, with
@@ -855,6 +856,8 @@ class ProviderRegistryService {
         }
         const baseUrl = rowConfig?.baseUrl ?? presetConfig?.baseUrl
         if (baseUrl !== undefined) config.baseUrl = baseUrl
+        // User-owned like `baseUrl`, but the registry declares no request path.
+        if (rowConfig?.requestPath !== undefined) config.requestPath = rowConfig.requestPath
         if (presetConfig?.modelsApiUrls !== undefined) config.modelsApiUrls = presetConfig.modelsApiUrls
         // Dialect merges per key: the row states only the deviations the user found.
         const dialect = { ...presetConfig?.dialect, ...rowConfig?.dialect }

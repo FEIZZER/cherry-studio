@@ -9,14 +9,16 @@ import {
 } from '../providerImageEndpoints'
 
 describe('provider image endpoint drafts', () => {
-  it('stores generation and editing URLs independently', () => {
+  it('stores generation and editing URLs and request paths independently', () => {
     expect(
       mergeProviderImageEndpointDraft(undefined, {
         imageGenerationBaseUrl: ' https://generate.example.com ',
-        imageEditBaseUrl: ' https://edit.example.com '
+        imageGenerationRequestPath: ' predict ',
+        imageEditBaseUrl: ' https://edit.example.com ',
+        imageEditRequestPath: ''
       })
     ).toEqual({
-      [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: { baseUrl: 'https://generate.example.com' },
+      [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: { baseUrl: 'https://generate.example.com', requestPath: 'predict' },
       [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: { baseUrl: 'https://edit.example.com' }
     })
   })
@@ -29,15 +31,18 @@ describe('provider image endpoint drafts', () => {
     expect(
       mergeProviderImageEndpointDraft(existing, {
         imageGenerationBaseUrl: '',
-        imageEditBaseUrl: ''
+        imageGenerationRequestPath: '',
+        imageEditBaseUrl: '',
+        imageEditRequestPath: ''
       })
     ).toEqual(existing)
   })
 
-  it('preserves endpoint metadata when a Base URL is read and merged without changes', () => {
+  it('preserves endpoint metadata when a draft is read and merged without changes', () => {
     const existing = {
       [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: {
         baseUrl: 'https://generate.example.com',
+        requestPath: '/predict',
         adapterFamily: 'openai-compatible'
       }
     }
@@ -45,7 +50,9 @@ describe('provider image endpoint drafts', () => {
 
     expect(draft).toEqual({
       imageGenerationBaseUrl: 'https://generate.example.com',
-      imageEditBaseUrl: ''
+      imageGenerationRequestPath: '/predict',
+      imageEditBaseUrl: '',
+      imageEditRequestPath: ''
     })
     expect(mergeProviderImageEndpointDraft(existing, draft)).toEqual(existing)
   })
@@ -59,10 +66,32 @@ describe('provider image endpoint drafts', () => {
     expect(
       mergeProviderImageEndpointDraft(existing, {
         imageGenerationBaseUrl: '',
-        imageEditBaseUrl: 'https://edit.example.com'
+        imageGenerationRequestPath: '',
+        imageEditBaseUrl: 'https://edit.example.com',
+        imageEditRequestPath: ''
       })
     ).toEqual({
       [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: { baseUrl: 'https://edit.example.com' }
+    })
+  })
+
+  it('clears a request path without dropping the endpoint', () => {
+    const existing = {
+      [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: {
+        baseUrl: 'https://generate.example.com',
+        requestPath: '/predict'
+      }
+    }
+
+    expect(
+      mergeProviderImageEndpointDraft(existing, {
+        imageGenerationBaseUrl: 'https://generate.example.com',
+        imageGenerationRequestPath: '',
+        imageEditBaseUrl: '',
+        imageEditRequestPath: ''
+      })
+    ).toEqual({
+      [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: { baseUrl: 'https://generate.example.com' }
     })
   })
 
@@ -70,13 +99,17 @@ describe('provider image endpoint drafts', () => {
     expect(
       findInvalidProviderImageEndpointDraft({
         imageGenerationBaseUrl: 'not-a-url',
-        imageEditBaseUrl: ''
+        imageGenerationRequestPath: '',
+        imageEditBaseUrl: '',
+        imageEditRequestPath: ''
       })
     ).toBe('imageGenerationBaseUrl')
     expect(
       findInvalidProviderImageEndpointDraft({
         imageGenerationBaseUrl: '',
-        imageEditBaseUrl: 'ftp://edit.example.com'
+        imageGenerationRequestPath: '',
+        imageEditBaseUrl: 'ftp://edit.example.com',
+        imageEditRequestPath: ''
       })
     ).toBe('imageEditBaseUrl')
   })

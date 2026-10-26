@@ -27,6 +27,8 @@ export type CustomProviderEndpointUrls = Partial<Record<CustomProviderEndpoint, 
 
 export interface CustomProviderCreationInput {
   endpointUrls: CustomProviderEndpointUrls
+  /** Per-endpoint request paths replacing the default suffixes (image endpoints only in the UI). */
+  endpointRequestPaths?: CustomProviderEndpointUrls
   preferredChatEndpoint?: CustomProviderTextEndpoint
 }
 
@@ -66,8 +68,12 @@ export function buildCustomProviderCreationPayload(input: CustomProviderCreation
   const endpointConfigs: Partial<Record<EndpointType, EndpointConfig>> = {}
   for (const endpointType of CUSTOM_PROVIDER_ENDPOINTS) {
     const baseUrl = trim(input.endpointUrls[endpointType])
-    if (baseUrl) {
-      endpointConfigs[endpointType] = { baseUrl }
+    const requestPath = trim(input.endpointRequestPaths?.[endpointType])
+    if (baseUrl || requestPath) {
+      endpointConfigs[endpointType] = {
+        ...(baseUrl && { baseUrl }),
+        ...(requestPath && { requestPath })
+      }
     }
   }
 
@@ -77,7 +83,17 @@ export function buildCustomProviderCreationPayload(input: CustomProviderCreation
   }
 }
 
-export function buildCustomProviderEndpointPreview(baseUrl: string, endpointType: CustomProviderEndpoint): string {
+function normalizeRequestPath(path: string | undefined): string | undefined {
+  const value = trim(path)
+  if (!value) return undefined
+  return value.startsWith('/') ? value : `/${value}`
+}
+
+export function buildCustomProviderEndpointPreview(
+  baseUrl: string,
+  endpointType: CustomProviderEndpoint,
+  requestPath?: string
+): string {
   const value = trim(baseUrl)
   if (!value || !validateApiHost(value)) {
     return ''
@@ -85,7 +101,7 @@ export function buildCustomProviderEndpointPreview(baseUrl: string, endpointType
 
   const formattedHost =
     endpointType === ENDPOINT_TYPE.GOOGLE_GENERATE_CONTENT ? formatApiHost(value, true, 'v1beta') : formatApiHost(value)
-  return `${formattedHost}${ENDPOINT_PATHS[endpointType]}`
+  return `${formattedHost}${normalizeRequestPath(requestPath) ?? ENDPOINT_PATHS[endpointType]}`
 }
 
 export function findInvalidCustomProviderCreationUrl(

@@ -1769,6 +1769,39 @@ describe('providerToAiSdkConfig — builder dispatch matrix', () => {
       expect(config.providerId).toBe('deepseek')
       expect((config.providerSettings as Record<string, unknown>).apiKey).toBe('sk-test-key')
     })
+
+    it('passes normalized custom image request paths to the openai-compatible settings', async () => {
+      const provider = makeProvider({
+        id: 'my-relay',
+        defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
+        endpointConfigs: {
+          [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://relay.example.com/v1' },
+          [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: { requestPath: 'predict' }
+        }
+      })
+      const model = makeModel({ endpointTypes: [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS] })
+
+      const config = await providerToAiSdkConfig(provider, model)
+
+      expect(config.providerId).toBe('openai-compatible')
+      expect((config.providerSettings as Record<string, unknown>).imageRequestPaths).toEqual({ generation: '/predict' })
+    })
+
+    it('omits imageRequestPaths when no image endpoint overrides its request path', async () => {
+      const provider = makeProvider({
+        id: 'my-relay',
+        defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
+        endpointConfigs: {
+          [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: { baseUrl: 'https://relay.example.com/v1' },
+          [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: { baseUrl: 'https://images.example.com/v1' }
+        }
+      })
+      const model = makeModel({ endpointTypes: [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS] })
+
+      const config = await providerToAiSdkConfig(provider, model)
+
+      expect((config.providerSettings as Record<string, unknown>).imageRequestPaths).toBeUndefined()
+    })
   })
 
   describe('NewAPI builder', () => {
@@ -1894,6 +1927,73 @@ describe('providerToAiSdkConfig — builder dispatch matrix', () => {
         expect(result.images).toEqual(['QUJD'])
       }
     )
+
+    it('posts image requests to custom request paths when configured', async () => {
+      const preset = readProviderRegistry('packages/provider-registry/data/providers.json').providers.find(
+        (provider) => provider.id === 'new-api'
+      )
+      const provider = makeProvider({
+        id: 'my-newapi',
+        presetProviderId: 'new-api',
+        defaultChatEndpoint: ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS,
+        endpointConfigs: {
+          ...preset?.endpointConfigs,
+          [ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS]: {
+            ...preset?.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS],
+            baseUrl: 'https://relay.example.com/v1'
+          },
+          [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: {
+            ...preset?.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION],
+            requestPath: 'predict'
+          },
+          [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: {
+            ...preset?.endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_EDIT],
+            requestPath: '/images/modify'
+          }
+        }
+      })
+      const model = makeModel({
+        apiModelId: 'gpt-image-2.5-flare',
+        endpointTypes: [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION],
+        capabilities: [MODEL_CAPABILITY.IMAGE_GENERATION]
+      })
+      const config = await providerToAiSdkConfig(provider, model)
+
+      expect(config.providerId).toBe('newapi')
+      expect((config.providerSettings as NewApiProviderSettings).imageRequestPaths).toEqual({
+        generation: '/predict',
+        edit: '/images/modify'
+      })
+      // A fresh Response per call: a single resolved instance has its body consumed by the first request.
+      vi.mocked(net.fetch).mockImplementation(
+        async () =>
+          new Response(JSON.stringify({ data: [{ b64_json: 'QUJD' }] }), {
+            headers: { 'content-type': 'application/json' }
+          })
+      )
+      const imageModel = createNewApi(config.providerSettings as NewApiProviderSettings).imageModel(
+        'gpt-image-2.5-flare'
+      )
+
+      await imageModel.doGenerate({
+        prompt: 'a red circle',
+        n: 1,
+        providerOptions: {},
+        headers: undefined,
+        abortSignal: undefined
+      } as ImageModelV3CallOptions)
+      expect(String(vi.mocked(net.fetch).mock.calls[0][0])).toBe('https://relay.example.com/v1/predict')
+
+      await imageModel.doGenerate({
+        prompt: 'a red circle',
+        n: 1,
+        providerOptions: {},
+        files: [{ type: 'file', data: new Uint8Array([137, 80, 78, 71]), mediaType: 'image/png' }],
+        headers: undefined,
+        abortSignal: undefined
+      } as ImageModelV3CallOptions)
+      expect(String(vi.mocked(net.fetch).mock.calls[1][0])).toBe('https://relay.example.com/v1/images/modify')
+    })
 
     it.each(imageEndpoints)('preserves an explicit %s host on a New API provider instance', async (endpointType) => {
       const preset = readProviderRegistry('packages/provider-registry/data/providers.json').providers.find(

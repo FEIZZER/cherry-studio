@@ -6,24 +6,29 @@ import type { EndpointConfig } from '@shared/data/types/provider'
 
 export interface ProviderImageEndpointDraft {
   imageGenerationBaseUrl: string
+  imageGenerationRequestPath: string
   imageEditBaseUrl: string
+  imageEditRequestPath: string
 }
 
 export type ProviderImageEndpointDraftField = 'imageGenerationBaseUrl' | 'imageEditBaseUrl'
 
-function setEndpointBaseUrl(
+type EndpointConfigField = 'baseUrl' | 'requestPath'
+
+function setEndpointConfigField(
   endpointConfigs: Partial<Record<EndpointType, EndpointConfig>>,
   type: EndpointType,
-  baseUrl: string
+  field: EndpointConfigField,
+  fieldValue: string
 ) {
-  const value = trim(baseUrl)
+  const value = trim(fieldValue)
   if (value) {
-    endpointConfigs[type] = { ...endpointConfigs[type], baseUrl: value }
+    endpointConfigs[type] = { ...endpointConfigs[type], [field]: value }
     return
   }
 
   const remainingConfig = { ...endpointConfigs[type] }
-  delete remainingConfig.baseUrl
+  delete remainingConfig[field]
   if (isEmpty(remainingConfig)) {
     delete endpointConfigs[type]
   } else {
@@ -34,12 +39,14 @@ function setEndpointBaseUrl(
 export function readProviderImageEndpointDraft(
   endpointConfigs: Partial<Record<EndpointType, EndpointConfig>> | undefined
 ): ProviderImageEndpointDraft {
-  const imageGenerationBaseUrl = trim(endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]?.baseUrl ?? '')
-  const imageEditBaseUrl = trim(endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]?.baseUrl ?? '')
+  const generation = endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]
+  const edit = endpointConfigs?.[ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]
 
   return {
-    imageGenerationBaseUrl,
-    imageEditBaseUrl
+    imageGenerationBaseUrl: trim(generation?.baseUrl ?? ''),
+    imageGenerationRequestPath: trim(generation?.requestPath ?? ''),
+    imageEditBaseUrl: trim(edit?.baseUrl ?? ''),
+    imageEditRequestPath: trim(edit?.requestPath ?? '')
   }
 }
 
@@ -49,8 +56,20 @@ export function mergeProviderImageEndpointDraft(
 ): Partial<Record<EndpointType, EndpointConfig>> {
   const endpointConfigs: Partial<Record<EndpointType, EndpointConfig>> = { ...existing }
 
-  setEndpointBaseUrl(endpointConfigs, ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION, trim(draft.imageGenerationBaseUrl))
-  setEndpointBaseUrl(endpointConfigs, ENDPOINT_TYPE.OPENAI_IMAGE_EDIT, trim(draft.imageEditBaseUrl))
+  setEndpointConfigField(
+    endpointConfigs,
+    ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION,
+    'baseUrl',
+    draft.imageGenerationBaseUrl
+  )
+  setEndpointConfigField(
+    endpointConfigs,
+    ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION,
+    'requestPath',
+    draft.imageGenerationRequestPath
+  )
+  setEndpointConfigField(endpointConfigs, ENDPOINT_TYPE.OPENAI_IMAGE_EDIT, 'baseUrl', draft.imageEditBaseUrl)
+  setEndpointConfigField(endpointConfigs, ENDPOINT_TYPE.OPENAI_IMAGE_EDIT, 'requestPath', draft.imageEditRequestPath)
 
   return endpointConfigs
 }

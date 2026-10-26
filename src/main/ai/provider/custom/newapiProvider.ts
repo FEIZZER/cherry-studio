@@ -24,7 +24,12 @@ import type { EmbeddingModelV3, ImageModelV3, LanguageModelV3, ProviderV3, Reran
 import type { FetchFunction } from '@ai-sdk/provider-utils'
 import { loadApiKey, withoutTrailingSlash } from '@ai-sdk/provider-utils'
 
-import { applyReasoningModelMaxTokensConversion, OpenAICompatibleRerankingModel } from '@cherrystudio/ai-sdk-provider'
+import {
+  applyReasoningModelMaxTokensConversion,
+  mapOpenAICompatibleImagePath,
+  type OpenAICompatibleImageRequestPaths,
+  OpenAICompatibleRerankingModel
+} from '@cherrystudio/ai-sdk-provider'
 
 export const NEWAPI_PROVIDER_NAME = 'newapi' as const
 
@@ -43,6 +48,8 @@ export interface NewApiProviderSettings {
   headers?: Record<string, string>
   fetch?: FetchFunction
   endpointType?: NewApiEndpointType
+  /** Custom request paths replacing the OpenAI image suffixes appended to `baseURL`. */
+  imageRequestPaths?: OpenAICompatibleImageRequestPaths
 }
 
 export interface NewApiProvider extends ProviderV3 {
@@ -69,7 +76,8 @@ export function createNewApi(options: NewApiProviderSettings = {}): NewApiProvid
     ...options.headers
   })
 
-  const url = ({ path }: { path: string; modelId: string }) => `${withoutTrailingSlash(baseURL)}${path}`
+  const url = ({ path }: { path: string; modelId: string }) =>
+    `${withoutTrailingSlash(baseURL)}${mapOpenAICompatibleImagePath(path, options.imageRequestPaths ?? {})}`
 
   const createAnthropicModel = (modelId: string) => {
     const headers = authHeaders()

@@ -17,9 +17,13 @@ export function ProviderImageEndpointFields({ value, invalidField, onChange }: P
   const generationInputId = `${uid}-image-generation-base-url`
   const generationHelpId = `${uid}-image-generation-base-url-help`
   const generationErrorId = `${uid}-image-generation-base-url-error`
+  const generationPathInputId = `${uid}-image-generation-request-path`
+  const generationPathHelpId = `${uid}-image-generation-request-path-help`
   const editInputId = `${uid}-image-edit-base-url`
   const editHelpId = `${uid}-image-edit-base-url-help`
   const editErrorId = `${uid}-image-edit-base-url-error`
+  const editPathInputId = `${uid}-image-edit-request-path`
+  const editPathHelpId = `${uid}-image-edit-request-path-help`
 
   return (
     <div className="flex flex-col gap-4">
@@ -50,6 +54,22 @@ export function ProviderImageEndpointFields({ value, invalidField, onChange }: P
       </Field>
 
       <Field className="gap-2">
+        <FieldLabel htmlFor={generationPathInputId} className="text-[13px] text-foreground">
+          {t('settings.provider.image_endpoints.image_generation_request_path.label')}
+        </FieldLabel>
+        <Input
+          id={generationPathInputId}
+          value={value.imageGenerationRequestPath}
+          placeholder={t('settings.provider.image_endpoints.image_generation_request_path.placeholder')}
+          aria-describedby={generationPathHelpId}
+          onChange={(event) => onChange({ ...value, imageGenerationRequestPath: event.target.value })}
+        />
+        <p id={generationPathHelpId} className="text-xs leading-tight text-muted-foreground">
+          {t('settings.provider.image_endpoints.image_generation_request_path.help')}
+        </p>
+      </Field>
+
+      <Field className="gap-2">
         <FieldLabel htmlFor={editInputId} className="text-[13px] text-foreground">
           {t('settings.provider.image_endpoints.image_edit_base_url.label')}
         </FieldLabel>
@@ -71,6 +91,22 @@ export function ProviderImageEndpointFields({ value, invalidField, onChange }: P
             invalidField === 'imageEditBaseUrl' ? [{ message: t('settings.provider.base_url.invalid') }] : undefined
           }
         />
+      </Field>
+
+      <Field className="gap-2">
+        <FieldLabel htmlFor={editPathInputId} className="text-[13px] text-foreground">
+          {t('settings.provider.image_endpoints.image_edit_request_path.label')}
+        </FieldLabel>
+        <Input
+          id={editPathInputId}
+          value={value.imageEditRequestPath}
+          placeholder={t('settings.provider.image_endpoints.image_edit_request_path.placeholder')}
+          aria-describedby={editPathHelpId}
+          onChange={(event) => onChange({ ...value, imageEditRequestPath: event.target.value })}
+        />
+        <p id={editPathHelpId} className="text-xs leading-tight text-muted-foreground">
+          {t('settings.provider.image_endpoints.image_edit_request_path.help')}
+        </p>
       </Field>
     </div>
   )

@@ -157,6 +157,7 @@ export default function ProviderEditorDrawer({
   const [secondaryUrls, setSecondaryUrls] = useState<Record<string, string>>({})
   const [moreEndpointsOpen, setMoreEndpointsOpen] = useState(false)
   const [endpointUrls, setEndpointUrls] = useState<CustomProviderEndpointUrls>({})
+  const [endpointRequestPaths, setEndpointRequestPaths] = useState<CustomProviderEndpointUrls>({})
   const [preferredChatEndpoint, setPreferredChatEndpoint] = useState<CustomProviderTextEndpoint>(
     ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS
   )
@@ -261,6 +262,7 @@ export default function ProviderEditorDrawer({
     setSecondaryUrls({})
     setMoreEndpointsOpen(false)
     setEndpointUrls({})
+    setEndpointRequestPaths({})
     const initialDefaultEndpoint =
       duplicateSource?.defaultChatEndpoint && isCustomProviderTextEndpoint(duplicateSource.defaultChatEndpoint)
         ? duplicateSource.defaultChatEndpoint
@@ -330,6 +332,10 @@ export default function ProviderEditorDrawer({
     setInvalidCreationUrl(null)
   }
 
+  const handleEndpointRequestPathChange = (endpointType: CustomProviderEndpoint, value: string) => {
+    setEndpointRequestPaths((prev) => ({ ...prev, [endpointType]: value }))
+  }
+
   const handleSelectPreset = (source: Provider) => {
     // A preset starts a real provider instance. Preserve the user's identity
     // and the current default text URL, but do not leak endpoint-specific
@@ -346,6 +352,7 @@ export default function ProviderEditorDrawer({
     )
     setSecondaryUrls({})
     setEndpointUrls({})
+    setEndpointRequestPaths({})
     setInvalidCreationUrl(null)
     onSelectPreset?.(source)
   }
@@ -382,6 +389,7 @@ export default function ProviderEditorDrawer({
     if (mode.kind === 'create-custom') {
       const creationPayload = buildCustomProviderCreationPayload({
         endpointUrls,
+        endpointRequestPaths,
         preferredChatEndpoint
       })
       return {
@@ -577,6 +585,7 @@ export default function ProviderEditorDrawer({
           <ApiKeyField value={apiKey} onChange={setApiKey} />
           <CustomProviderEndpointFields
             endpointUrls={endpointUrls}
+            endpointRequestPaths={endpointRequestPaths}
             preferredChatEndpoint={preferredChatEndpoint}
             invalidUrl={invalidCreationUrl}
             moreOpen={moreEndpointsOpen}
@@ -585,6 +594,7 @@ export default function ProviderEditorDrawer({
             firstTextEndpointRef={firstTextEndpointRef}
             onMoreOpenChange={setMoreEndpointsOpen}
             onEndpointUrlChange={handleEndpointUrlChange}
+            onEndpointRequestPathChange={handleEndpointRequestPathChange}
             onPreferredChatEndpointChange={setPreferredChatEndpoint}
           />
         </>
@@ -695,8 +705,25 @@ const CUSTOM_PROVIDER_ENDPOINT_LABEL_KEYS: Record<CustomProviderEndpoint, string
   [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: 'settings.provider.image_endpoints.image_edit_base_url.label'
 }
 
+const IMAGE_ENDPOINT_REQUEST_PATH_KEYS: Partial<
+  Record<CustomProviderEndpoint, { label: string; placeholder: string; help: string }>
+> = {
+  [ENDPOINT_TYPE.OPENAI_IMAGE_GENERATION]: {
+    label: 'settings.provider.image_endpoints.image_generation_request_path.label',
+    placeholder: 'settings.provider.image_endpoints.image_generation_request_path.placeholder',
+    help: 'settings.provider.image_endpoints.image_generation_request_path.help'
+  },
+  [ENDPOINT_TYPE.OPENAI_IMAGE_EDIT]: {
+    label: 'settings.provider.image_endpoints.image_edit_request_path.label',
+    placeholder: 'settings.provider.image_endpoints.image_edit_request_path.placeholder',
+    help: 'settings.provider.image_endpoints.image_edit_request_path.help'
+  }
+}
+
 interface CustomProviderEndpointFieldsProps {
   endpointUrls: CustomProviderEndpointUrls
+  /** When set (with `onEndpointRequestPathChange`), image endpoints get a request-path input. */
+  endpointRequestPaths?: CustomProviderEndpointUrls
   preferredChatEndpoint: CustomProviderTextEndpoint
   invalidUrl: CustomProviderCreationInvalidUrl | null
   moreOpen: boolean
@@ -708,11 +735,13 @@ interface CustomProviderEndpointFieldsProps {
   firstTextEndpointRef?: Ref<HTMLInputElement>
   onMoreOpenChange: (open: boolean) => void
   onEndpointUrlChange: (endpointType: CustomProviderEndpoint, value: string) => void
+  onEndpointRequestPathChange?: (endpointType: CustomProviderEndpoint, value: string) => void
   onPreferredChatEndpointChange?: (endpointType: CustomProviderTextEndpoint) => void
 }
 
 function CustomProviderEndpointFields({
   endpointUrls,
+  endpointRequestPaths,
   preferredChatEndpoint,
   invalidUrl,
   moreOpen,
@@ -724,6 +753,7 @@ function CustomProviderEndpointFields({
   firstTextEndpointRef,
   onMoreOpenChange,
   onEndpointUrlChange,
+  onEndpointRequestPathChange,
   onPreferredChatEndpointChange
 }: CustomProviderEndpointFieldsProps) {
   const { t } = useTranslation()
@@ -733,7 +763,12 @@ function CustomProviderEndpointFields({
     const endpointValue = endpointUrls[endpointType] ?? ''
     const invalidEndpoint = invalidUrl?.field === 'endpointUrl' && invalidUrl.endpointType === endpointType
     const missingTextEndpoint = textEndpointRequired && endpointType === ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS
-    const requestPreview = buildCustomProviderEndpointPreview(endpointValue, endpointType)
+    const requestPreview = buildCustomProviderEndpointPreview(
+      endpointValue,
+      endpointType,
+      endpointRequestPaths?.[endpointType]
+    )
+    const requestPathKeys = IMAGE_ENDPOINT_REQUEST_PATH_KEYS[endpointType]
     const emptyValueHelp = CUSTOM_PROVIDER_TEXT_ENDPOINTS.some((type) => type === endpointType)
       ? t('settings.provider.create_custom.endpoint_fields.url_help')
       : t(
@@ -743,26 +778,37 @@ function CustomProviderEndpointFields({
         )
 
     return (
-      <BaseUrlField
-        label={t(CUSTOM_PROVIDER_ENDPOINT_LABEL_KEYS[endpointType])}
-        placeholder={t('settings.provider.base_url.placeholder')}
-        value={endpointValue}
-        error={
-          invalidEndpoint
-            ? t('settings.provider.base_url.invalid')
-            : missingTextEndpoint
-              ? t('settings.provider.create_custom.endpoint_fields.text_endpoint_required')
-              : undefined
-        }
-        description={
-          requestPreview
-            ? t('settings.provider.create_custom.request_preview', { path: requestPreview })
-            : emptyValueHelp
-        }
-        labelAccessory={labelAccessory}
-        inputRef={endpointType === ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS ? firstTextEndpointRef : undefined}
-        onChange={(nextValue) => onEndpointUrlChange(endpointType, nextValue)}
-      />
+      <div className="flex flex-col gap-5">
+        <BaseUrlField
+          label={t(CUSTOM_PROVIDER_ENDPOINT_LABEL_KEYS[endpointType])}
+          placeholder={t('settings.provider.base_url.placeholder')}
+          value={endpointValue}
+          error={
+            invalidEndpoint
+              ? t('settings.provider.base_url.invalid')
+              : missingTextEndpoint
+                ? t('settings.provider.create_custom.endpoint_fields.text_endpoint_required')
+                : undefined
+          }
+          description={
+            requestPreview
+              ? t('settings.provider.create_custom.request_preview', { path: requestPreview })
+              : emptyValueHelp
+          }
+          labelAccessory={labelAccessory}
+          inputRef={endpointType === ENDPOINT_TYPE.OPENAI_CHAT_COMPLETIONS ? firstTextEndpointRef : undefined}
+          onChange={(nextValue) => onEndpointUrlChange(endpointType, nextValue)}
+        />
+        {requestPathKeys && endpointRequestPaths && onEndpointRequestPathChange && (
+          <BaseUrlField
+            label={t(requestPathKeys.label)}
+            placeholder={t(requestPathKeys.placeholder)}
+            value={endpointRequestPaths[endpointType] ?? ''}
+            description={t(requestPathKeys.help)}
+            onChange={(nextValue) => onEndpointRequestPathChange(endpointType, nextValue)}
+          />
+        )}
+      </div>
     )
   }
 

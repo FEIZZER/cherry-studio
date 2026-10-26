@@ -213,6 +213,12 @@ export type ModelsApiUrls = z.infer<typeof ModelsApiUrlsSchema>
 export const EndpointConfigSchema = z.object({
   /** Base URL for this endpoint type's API */
   baseUrl: z.string().optional(),
+  /**
+   * Request path appended to the Base URL, replacing the adapter family's
+   * default suffix (e.g. `/images/generations`). Absent ⇒ the standard path
+   * for the endpoint's protocol.
+   */
+  requestPath: z.string().optional(),
   /** URLs for fetching available models via this endpoint type */
   modelsApiUrls: ModelsApiUrlsSchema.optional(),
   /** AI SDK adapter family that handles this endpoint. Carried over from the catalog */
@@ -233,6 +239,8 @@ export type EndpointConfig = z.infer<typeof EndpointConfigSchema>
 export const EndpointConfigOverrideSchema = z.object({
   /** User-owned base URL override for this endpoint type's API */
   baseUrl: z.string().optional(),
+  /** User-owned request-path override appended to the Base URL instead of the default suffix */
+  requestPath: z.string().optional(),
   /** User-owned dialect overrides — the only way a custom provider states its deviations */
   dialect: EndpointDialectSchema.optional()
 })

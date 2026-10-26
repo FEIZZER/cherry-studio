@@ -15,7 +15,11 @@ import type { XaiProvider, XaiProviderSettings } from '@ai-sdk/xai'
 import type { OpenRouterProvider, OpenRouterProviderSettings } from '@openrouter/ai-sdk-provider'
 import { customProvider, type LanguageModel } from 'ai'
 
-import type { CherryInProvider, CherryInProviderSettings } from '@cherrystudio/ai-sdk-provider'
+import type {
+  CherryInProvider,
+  CherryInProviderSettings,
+  OpenAICompatibleImageModelSettings
+} from '@cherrystudio/ai-sdk-provider'
 
 import type {
   ExtensionConfigToIdResolutionMap,
@@ -188,16 +192,20 @@ const OpenAICompatibleExtension = ProviderExtension.create({
     if (!settings) {
       throw new Error('OpenAI Compatible provider requires settings')
     }
-    const [{ createOpenAICompatible }, { applyReasoningModelMaxTokensConversion }] = await Promise.all([
-      import('@ai-sdk/openai-compatible'),
-      import('@cherrystudio/ai-sdk-provider')
-    ])
-    const { transformRequestBody } = settings
-    return createOpenAICompatible({
-      ...settings,
+    const [{ createOpenAICompatible }, { applyReasoningModelMaxTokensConversion, createOpenAICompatibleImageModel }] =
+      await Promise.all([import('@ai-sdk/openai-compatible'), import('@cherrystudio/ai-sdk-provider')])
+    const { transformRequestBody, imageRequestPaths, ...providerSettings } = settings
+    const provider = createOpenAICompatible({
+      ...providerSettings,
       transformRequestBody: (args) =>
         applyReasoningModelMaxTokensConversion(transformRequestBody ? transformRequestBody(args) : args)
     })
+    if (imageRequestPaths) {
+      // The SDK image model hard-codes the OpenAI image suffixes; custom request
+      // paths need the path-mapping rebuild (see openai-compatible-image-model.ts).
+      provider.imageModel = (modelId) => createOpenAICompatibleImageModel(modelId, settings)
+    }
+    return provider
   },
   createRerankingModel: (modelId, settings) => {
     if (!settings) {
@@ -205,7 +213,7 @@ const OpenAICompatibleExtension = ProviderExtension.create({
     }
     return createLazyOpenAICompatibleRerankingModel(modelId, settings)
   }
-} as const satisfies ProviderExtensionConfig<OpenAICompatibleProviderSettings, ProviderV3, 'openai-compatible'>)
+} as const satisfies ProviderExtensionConfig<OpenAICompatibleImageModelSettings, ProviderV3, 'openai-compatible'>)
 
 const OpenAIExtension = ProviderExtension.create({
   name: 'openai',

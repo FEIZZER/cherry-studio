@@ -217,7 +217,7 @@ Implemented in `normalizeModelId()` (`packages/provider-registry/src/utils/norma
 | `providerId` | PK, user-defined unique ID |
 | `presetProviderId` | Links to a providers.json entry (null = custom provider). Dual-purpose: identifies the source preset *and* the sidebar grouping key — for a few registry rows (e.g. `zai`→`zhipu`, `minimax-global`→`minimax`, `moonshot-global`→`moonshot`) it points at a different preset so they fold under that group. |
 | `name` | User-owned display name, initialized from the preset when the row is first seeded |
-| `endpointConfigs` | JSON delta: user `baseUrl` overrides; custom providers may also store an `adapterFamily` routing hint |
+| `endpointConfigs` | JSON delta: user `baseUrl` / `requestPath` overrides; custom providers may also store an `adapterFamily` routing hint |
 | `defaultChatEndpoint` | Nullable user override; null inherits the registry default |
 | `apiKeys` | JSON array of API key entries |
 | `apiFeatures` | JSON delta: only flags differing from registry/app defaults; null inherits all defaults |
@@ -253,6 +253,7 @@ user_provider (DB, delta)  >  providers.json (registry)  >  app defaults
 | field | ownership | resolution |
 | --- | --- | --- |
 | `endpointConfigs[ep].baseUrl` | user | row > registry |
+| `endpointConfigs[ep].requestPath` | user | row only (registry declares none) |
 | `endpointConfigs[ep].adapterFamily` | registry | registry > row (custom-provider hint) > `inferAdapterFamily(ep)` |
 | `endpointConfigs[ep].modelsApiUrls` | registry | registry only |
 | endpoint-type key set | registry ∪ user | union of registry and row keys |

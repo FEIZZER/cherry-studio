@@ -53,7 +53,9 @@ One signal, no heuristics. Tested with 54 cases in
 
 The New API preset declares `newapi` for both `openai-image-generation` and
 `openai-image-edit`. This adapter derives `/v1` from the configured gateway
-host before the image SDK appends `/images/generations` or `/images/edits`.
+host before the image SDK appends `/images/generations` or `/images/edits` —
+or the per-endpoint `requestPath` that replaces those suffixes when the user
+configures one.
 The terminal `openai-compatible` fallback does not perform this relay-specific
 version handling and can request an unversioned path that returns the gateway
 web UI instead of image JSON.
@@ -131,7 +133,8 @@ row-write time:
    when the endpoint was anthropic-format.
 
 The renderer's custom-provider form does **not** set `adapterFamily`:
-`ProviderEditorDrawer.tsx` writes only `baseUrl` into the endpoint config,
+`ProviderEditorDrawer.tsx` writes only `baseUrl` and an optional `requestPath`
+into the endpoint config,
 leaving the field absent so the resolver's `openai-compatible` fallback
 applies. `inferAdapterFamily` has **no renderer callers** — it is invoked
 only by the migrator above.
@@ -143,6 +146,7 @@ only by the migrator above.
 ```ts
 EndpointConfigSchema = z.object({
   baseUrl: z.string().optional(),
+  requestPath: z.string().optional(),   // replaces the endpoint's default request suffix
   adapterFamily: z.string().optional(),   // optional — resolver falls back to openai-compatible
   // ... other endpoint-config fields
 })
